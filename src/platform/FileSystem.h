@@ -55,6 +55,9 @@ class IFileSystem {
                               size_t length) = 0;
 
   virtual Status createDirectories(const std::string& path) = 0;
+
+  // Espaço livre (bytes) no volume que contém "path".
+  virtual Status freeSpace(const std::string& path, uint64_t& bytes) = 0;
   virtual Status removeFile(const std::string& path) = 0;
   virtual Status renameFile(const std::string& from, const std::string& to) = 0;
 };

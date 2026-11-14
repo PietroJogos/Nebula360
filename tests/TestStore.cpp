@@ -144,7 +144,9 @@ NB_TEST(download_queue_rejects_tampered_data_and_retries) {
   net.add("https://exemplo.invalid/b", "ok");
   net.add("https://exemplo.invalid/c", "grande-demais");
   net.failNextOpens("https://exemplo.invalid/b", 2);
-  DownloadQueue q(fs, net, 3);
+  DownloadOptions options;
+  options.maxAttempts = 3;
+  DownloadQueue q(fs, net, options);
 
   DownloadRequest a;
   a.url = "https://exemplo.invalid/a";

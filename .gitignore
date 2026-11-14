@@ -7,3 +7,10 @@ references/xex/original/*.XEX
 build/
 build-*/
 nebula_data/
+
+# Pacotes de terceiros (proprietários): só locais, nunca versionados.
+references/pacotes/original/
+*.rar
+*.zip
+*.xex
+!tests/**

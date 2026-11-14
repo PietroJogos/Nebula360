@@ -38,6 +38,7 @@ set(NEBULA_CORE_SOURCES
   src/core/Sha256.cpp
   src/core/Status.cpp
   src/core/StringUtil.cpp
+  src/core/Version.cpp
   src/platform/Launcher.cpp
   src/platform/MemoryFileSystem.cpp
   src/formats/StfsHeader.cpp
@@ -52,7 +53,11 @@ set(NEBULA_CORE_SOURCES
   src/store/DownloadQueue.cpp
   src/store/StorePolicy.cpp
   src/integrations/Integration.cpp
+  src/plugins/BootGuard.cpp
+  src/plugins/ModuleManifest.cpp
+  src/plugins/ModuleRegistry.cpp
   src/app/AppConfig.cpp
+  src/app/BuiltinModules.cpp
 )
 add_library(nebula_core STATIC ${NEBULA_CORE_SOURCES})
 target_include_directories(nebula_core PUBLIC src)
@@ -123,6 +128,8 @@ if(NEBULA_BUILD_TESTS)
     tests/TestTheme.cpp
     tests/TestUi.cpp
     tests/TestApp.cpp
+    tests/TestPlugins.cpp
+    tests/TestDownloads.cpp
   )
   target_link_libraries(nebula_tests PRIVATE nebula_ui nebula_host)
   target_compile_options(nebula_tests PRIVATE ${NEBULA_WARNINGS} -Wno-sign-compare)

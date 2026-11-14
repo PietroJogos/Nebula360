@@ -74,6 +74,11 @@ class Xbox360Launcher : public ILauncher {
     // Em caso de sucesso a função não retorna.
     return Status(kIoError, "XLaunchNewImage falhou: " + str::toString(static_cast<uint32_t>(r)));
   }
+  virtual Status returnToDashboard() NB_OVERRIDE {
+    // Volta ao aplicativo padrão (com DashLaunch, o "Default" do launch.ini).
+    DWORD r = XLaunchNewImage(XLAUNCH_KEYWORD_DEFAULT_APP, 0);
+    return Status(kIoError, "retorno ao dashboard falhou: " + str::toString(static_cast<uint32_t>(r)));
+  }
 };
 
 // Envia o framebuffer 1280x720 (0xAARRGGBB) para a tela.

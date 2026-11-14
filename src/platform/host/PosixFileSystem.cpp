@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -132,6 +133,22 @@ Status PosixFileSystem::createDirectories(const std::string& p) {
   if (::mkdir(p.c_str(), 0755) != 0 && errno != EEXIST) {
     return errnoStatus("não foi possível criar o diretório", p);
   }
+  return Status::Ok();
+}
+
+Status PosixFileSystem::freeSpace(const std::string& p, uint64_t& bytes) {
+  std::string target = p;
+  // Sobe até um caminho existente (o destino pode ainda não existir).
+  while (!target.empty() && !exists(target)) {
+    std::string up = path::parent(target, '/');
+    if (up == target) break;
+    target = up;
+  }
+  struct statvfs st;
+  if (::statvfs(target.empty() ? "." : target.c_str(), &st) != 0) {
+    return errnoStatus("statvfs falhou para", p);
+  }
+  bytes = static_cast<uint64_t>(st.f_bavail) * static_cast<uint64_t>(st.f_frsize);
   return Status::Ok();
 }
 

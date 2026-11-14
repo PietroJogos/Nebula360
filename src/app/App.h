@@ -13,6 +13,8 @@
 #include "library/CoverResolver.h"
 #include "library/Library.h"
 #include "library/Scanner.h"
+#include "plugins/BootGuard.h"
+#include "plugins/ModuleRegistry.h"
 #include "theme/Theme.h"
 #include "ui/AppController.h"
 #include "ui/Font.h"
@@ -60,6 +62,9 @@ class App : public IAppController {
   const std::vector<Toast>& toasts() const { return toasts_; }
   const MemoryLogSink& recentLog() const { return memoryLog_; }
   bool scanning() const { return scanner_.running(); }
+  // O usuário pediu para sair e a plataforma não tem dashboard (PC).
+  bool quitRequested() const { return quitRequested_; }
+  const BootGuard* bootGuard() const { return bootGuard_; }
   const std::string& dataDir() const { return paths_.dataDir; }
 
   // IAppController
@@ -70,6 +75,9 @@ class App : public IAppController {
   virtual const Scanner& scanner() const NB_OVERRIDE { return scanner_; }
   virtual PlatformKind platform() const NB_OVERRIDE { return platform_; }
   virtual bool canLaunch(const Game& game) const NB_OVERRIDE;
+  virtual const ModuleRegistry& modules() const NB_OVERRIDE { return modules_; }
+  virtual bool safeMode() const NB_OVERRIDE { return modules_.safeMode(); }
+  virtual void exitToDashboard() NB_OVERRIDE;
   virtual void pushScreen(Screen* screen) NB_OVERRIDE;
   virtual void popScreen() NB_OVERRIDE;
   virtual void showToast(const std::string& message, bool isError) NB_OVERRIDE;
@@ -117,6 +125,9 @@ class App : public IAppController {
   TextureCache textures_;
   CoverResolver* covers_;
   IntegrationRegistry integrations_;
+  ModuleRegistry modules_;
+  BootGuard* bootGuard_;
+  bool quitRequested_;
 
   ScreenStack screens_;
   LibraryScreen* libraryScreen_;

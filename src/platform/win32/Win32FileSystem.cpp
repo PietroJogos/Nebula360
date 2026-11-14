@@ -183,6 +183,19 @@ Status Win32FileSystem::createDirectories(const std::string& p) {
   return Status::Ok();
 }
 
+Status Win32FileSystem::freeSpace(const std::string& p, uint64_t& bytes) {
+  // GetDiskFreeSpaceEx pede uma pasta; usa a raiz do dispositivo ("Hdd1:\\").
+  std::string root = p;
+  size_t colon = root.find(':');
+  if (colon != std::string::npos) root = root.substr(0, colon + 1) + "\\";
+  ULARGE_INTEGER freeToCaller, total, totalFree;
+  if (!GetDiskFreeSpaceExA(root.c_str(), &freeToCaller, &total, &totalFree)) {
+    return lastError("não foi possível consultar o espaço livre de", root);
+  }
+  bytes = freeToCaller.QuadPart;
+  return Status::Ok();
+}
+
 Status Win32FileSystem::removeFile(const std::string& p) {
   if (!DeleteFileA(p.c_str())) return lastError("não foi possível remover", p);
   return Status::Ok();

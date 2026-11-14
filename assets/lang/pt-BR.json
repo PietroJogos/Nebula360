@@ -111,6 +111,22 @@
     "toast.lang.missing": "Arquivo de idioma ausente",
     "toast.paths.none": "Nenhuma pasta ativa. Configure em Menu › Pastas de jogos.",
     "toast.path.duplicate": "Essa pasta já está na lista",
-    "toast.game.missing": "Jogo não encontrado no disco. Reescaneie a biblioteca."
+    "toast.game.missing": "Jogo não encontrado no disco. Reescaneie a biblioteca.",
+    "menu.modules": "Módulos",
+    "menu.safemode": "modo seguro",
+    "menu.exit": "Sair do Nébula",
+    "modules.title": "Módulos",
+    "modules.safemode": "Modo seguro ativo: só os módulos obrigatórios foram iniciados. Ele é desativado após um encerramento normal.",
+    "module.state.registered": "não avaliado",
+    "module.state.disabled": "desativado",
+    "module.state.incompatible": "incompatível",
+    "module.state.skipped": "não iniciado",
+    "module.state.failed": "falhou",
+    "module.state.running": "rodando",
+    "module.state.stopped": "parado",
+    "toast.crash": "O Nébula não foi encerrado normalmente na última vez.",
+    "toast.safemode": "Modo seguro: módulos opcionais desativados após falhas seguidas.",
+    "toast.module.required": "Módulo obrigatório indisponível: {0}",
+    "toast.exit.error": "Não foi possível voltar ao dashboard: {0}"
   }
 }

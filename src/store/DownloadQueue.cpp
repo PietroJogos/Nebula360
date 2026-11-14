@@ -3,6 +3,7 @@
 #include "core/Log.h"
 #include "core/Path.h"
 #include "core/StringUtil.h"
+#include "platform/Clock.h"
 #include "platform/FileSystem.h"
 #include "store/Catalog.h"
 #include "store/StorePolicy.h"
@@ -27,9 +28,16 @@ const char* downloadStateName(DownloadState s) {
 }
 
 DownloadQueue::DownloadQueue(IFileSystem& fs, IDownloadTransport& transport,
-                             uint32_t maxAttempts)
-    : fs_(fs), transport_(transport), maxAttempts_(maxAttempts == 0 ? 1 : maxAttempts),
-      current_(kNoJob), transportOpen_(false), buffer_(kBufferSize) {}
+                             const DownloadOptions& options, IClock* clock)
+    : fs_(fs), transport_(transport), options_(options), clock_(clock), current_(kNoJob),
+      transportOpen_(false), buffer_(kBufferSize), tokens_(0), lastRefillMs_(0) {
+  if (options_.maxAttempts == 0) options_.maxAttempts = 1;
+  if (options_.rateLimitBytesPerSecond != 0 && clock_ == NULL) {
+    NB_WARN(kTag, "limite de velocidade ignorado: nenhum relógio informado");
+    options_.rateLimitBytesPerSecond = 0;
+  }
+  if (clock_ != NULL) lastRefillMs_ = clock_->monotonicMs();
+}
 
 DownloadQueue::~DownloadQueue() {
   if (transportOpen_) transport_.close();
@@ -77,8 +85,9 @@ bool DownloadQueue::cancel(const std::string& destination) {
       if (transportOpen_) transport_.close();
       transportOpen_ = false;
       current_ = kNoJob;
-      if (fs_.exists(partPath(j))) fs_.removeFile(partPath(j));
     }
+    // Cancelar é definitivo: o parcial é apagado.
+    if (fs_.exists(partPath(j))) fs_.removeFile(partPath(j));
     j.state = kDownloadCancelled;
     NB_INFO(kTag, "cancelado: " << destination);
     return true;
@@ -86,47 +95,101 @@ bool DownloadQueue::cancel(const std::string& destination) {
   return false;
 }
 
-bool DownloadQueue::beginAttempt(DownloadJob& job) {
-  ++job.attempts;
-  job.received = 0;
-  job.error.clear();
-  job.state = kDownloadActive;
+bool DownloadQueue::prepareResume(DownloadJob& job, uint64_t& offset) {
+  offset = 0;
   hash_.reset();
   std::string part = partPath(job);
-  if (fs_.exists(part)) fs_.removeFile(part);
+  uint64_t size = 0;
+  if (!fs_.exists(part) || !fs_.fileSize(part, size).ok()) return false;
+  if (size == 0 || size >= job.request.expectedSize) {
+    fs_.removeFile(part);
+    return false;
+  }
+  // Reconstrói o SHA-256 do que já foi baixado.
+  uint64_t pos = 0;
+  while (pos < size) {
+    std::string chunk;
+    Status s = fs_.readFileRange(part, pos, kBufferSize, chunk);
+    if (!s.ok() || chunk.empty()) {
+      hash_.reset();
+      fs_.removeFile(part);
+      return false;
+    }
+    hash_.update(chunk.data(), chunk.size());
+    pos += chunk.size();
+  }
+  offset = size;
+  return true;
+}
+
+bool DownloadQueue::beginAttempt(DownloadJob& job) {
+  ++job.attempts;
+  job.error.clear();
+  job.state = kDownloadActive;
+  job.resumedFrom = 0;
   std::string dir = path::parent(job.request.destination, fs_.separator());
   if (!dir.empty()) {
     Status s = fs_.createDirectories(dir);
     if (!s.ok()) {
-      failAttempt(job, s);
+      failAttempt(job, s, true, true);
       return false;
     }
   }
-  uint64_t length = 0;
-  Status s = transport_.open(job.request.url, length);
+  uint64_t offset = 0;
+  bool resuming = prepareResume(job, offset);
+
+  // Espaço livre: o que falta baixar + folga.
+  uint64_t free = 0;
+  Status fsStatus = fs_.freeSpace(dir.empty() ? job.request.destination : dir, free);
+  uint64_t needed = job.request.expectedSize - offset + options_.freeSpaceMarginBytes;
+  if (fsStatus.ok() && free < needed) {
+    failAttempt(job, Status(kLimitExceeded, "espaço insuficiente: faltam " +
+                                                str::formatBytes(needed - free)),
+                true, false);  // sem nova tentativa: esperar não libera espaço
+    return false;
+  }
+  if (!fsStatus.ok()) NB_WARN(kTag, "não foi possível consultar o espaço livre: " << fsStatus.toString());
+
+  uint64_t remaining = 0;
+  bool honored = false;
+  Status s = transport_.open(job.request.url, offset, remaining, honored);
   if (!s.ok()) {
-    failAttempt(job, s);
+    failAttempt(job, s, true, true);
     return false;
   }
   transportOpen_ = true;
-  if (length != 0 && length != job.request.expectedSize) {
-    failAttempt(job, Status(kIntegrityError, "servidor informou tamanho " +
-                                                 str::toString(length) + ", esperado " +
-                                                 str::toString(job.request.expectedSize)));
+  if (resuming && !honored) {
+    // O servidor recomeçou do zero: descarta o parcial.
+    fs_.removeFile(partPath(job));
+    hash_.reset();
+    offset = 0;
+    resuming = false;
+    NB_INFO(kTag, "servidor não aceitou retomar; recomeçando " << job.request.url);
+  }
+  job.received = offset;
+  job.resumedFrom = offset;
+  uint64_t expectedRemaining = job.request.expectedSize - offset;
+  if (remaining != 0 && remaining != expectedRemaining) {
+    failAttempt(job, Status(kIntegrityError, "servidor informou " + str::toString(remaining) +
+                                                 " bytes, esperado " + str::toString(expectedRemaining)),
+                false, true);
     return false;
   }
-  NB_INFO(kTag, "baixando " << job.request.url << " (tentativa " << job.attempts << ")");
+  NB_INFO(kTag, (resuming ? "retomando " : "baixando ") << job.request.url << " (tentativa "
+                                                        << job.attempts << ", a partir de " << offset << ")");
   return true;
 }
 
-void DownloadQueue::failAttempt(DownloadJob& job, const Status& why) {
+void DownloadQueue::failAttempt(DownloadJob& job, const Status& why, bool keepPartial, bool retry) {
   if (transportOpen_) transport_.close();
   transportOpen_ = false;
-  std::string part = partPath(job);
-  if (fs_.exists(part)) fs_.removeFile(part);
+  if (!keepPartial) {
+    std::string part = partPath(job);
+    if (fs_.exists(part)) fs_.removeFile(part);
+  }
   job.error = why.toString();
   NB_WARN(kTag, job.request.url << ": " << job.error);
-  if (job.attempts < maxAttempts_) {
+  if (retry && job.attempts < options_.maxAttempts) {
     job.state = kDownloadQueued;  // volta para a fila
   } else {
     job.state = kDownloadFailed;
@@ -141,23 +204,35 @@ void DownloadQueue::finishAttempt(DownloadJob& job) {
   if (job.received != job.request.expectedSize) {
     failAttempt(job, Status(kIntegrityError, "tamanho recebido " + str::toString(job.received) +
                                                  " difere do esperado " +
-                                                 str::toString(job.request.expectedSize)));
+                                                 str::toString(job.request.expectedSize)),
+                false, true);
     return;
   }
   std::string digest = hash_.finishHex();
   if (digest != job.request.expectedSha256) {
-    failAttempt(job, Status(kIntegrityError, "SHA-256 não confere (recebido " + digest + ")"));
+    failAttempt(job, Status(kIntegrityError, "SHA-256 não confere (recebido " + digest + ")"), false, true);
     return;
   }
   if (fs_.exists(job.request.destination)) fs_.removeFile(job.request.destination);
   Status s = fs_.renameFile(partPath(job), job.request.destination);
   if (!s.ok()) {
-    failAttempt(job, s);
+    failAttempt(job, s, false, true);
     return;
   }
   job.state = kDownloadCompleted;
   current_ = kNoJob;
   NB_INFO(kTag, "concluído e verificado: " << job.request.destination);
+}
+
+size_t DownloadQueue::rateBudget(size_t wanted) {
+  if (options_.rateLimitBytesPerSecond == 0 || clock_ == NULL) return wanted;
+  uint64_t now = clock_->monotonicMs();
+  uint64_t elapsed = now - lastRefillMs_;
+  lastRefillMs_ = now;
+  uint64_t cap = options_.rateLimitBytesPerSecond;  // rajada máxima: 1 segundo
+  tokens_ += elapsed * options_.rateLimitBytesPerSecond / 1000;
+  if (tokens_ > cap) tokens_ = cap;
+  return tokens_ < wanted ? static_cast<size_t>(tokens_) : wanted;
 }
 
 bool DownloadQueue::step(size_t maxBytes) {
@@ -172,29 +247,30 @@ bool DownloadQueue::step(size_t maxBytes) {
     if (!beginAttempt(jobs_[current_])) return !idle();
   }
   DownloadJob& job = jobs_[current_];
-  size_t budget = maxBytes == 0 ? buffer_.size() : maxBytes;
+  size_t budget = rateBudget(maxBytes == 0 ? buffer_.size() : maxBytes);
   while (budget > 0) {
     size_t want = budget < buffer_.size() ? budget : buffer_.size();
     size_t got = 0;
     bool finished = false;
     Status s = transport_.read(&buffer_[0], want, got, finished);
     if (!s.ok()) {
-      failAttempt(job, s);
+      failAttempt(job, s, true, true);  // rede caiu: mantém o parcial para retomar
       return !idle();
     }
     if (got > 0) {
       if (job.received + got > job.request.expectedSize) {
-        failAttempt(job, Status(kIntegrityError, "servidor enviou mais dados que o esperado"));
+        failAttempt(job, Status(kIntegrityError, "servidor enviou mais dados que o esperado"), false, true);
         return !idle();
       }
       s = fs_.appendToFile(partPath(job), &buffer_[0], got);
       if (!s.ok()) {
-        failAttempt(job, s);
+        failAttempt(job, s, true, true);
         return !idle();
       }
       hash_.update(&buffer_[0], got);
       job.received += got;
       budget -= got;
+      if (tokens_ >= got) tokens_ -= got;
     }
     if (finished) {
       finishAttempt(job);
@@ -228,18 +304,35 @@ Status planInstall(const CatalogItem& item, const std::string& installRoot, char
   return Status::Ok();
 }
 
-Status MemoryTransport::open(const std::string& url, uint64_t& contentLength) {
-  std::map<std::string, int>::iterator f = failures_.find(url);
-  if (f != failures_.end() && f->second > 0) {
+void MemoryTransport::dropAfter(const std::string& url, uint64_t bytes, int count) {
+  Drop d;
+  d.afterBytes = bytes;
+  d.count = count;
+  drops_[url] = d;
+}
+
+Status MemoryTransport::open(const std::string& url, uint64_t offset, uint64_t& remaining,
+                             bool& rangeHonored) {
+  std::map<std::string, int>::iterator f = openFailures_.find(url);
+  if (f != openFailures_.end() && f->second > 0) {
     --f->second;
     return Status(kIoError, "falha de rede simulada: " + url);
   }
   std::map<std::string, std::string>::const_iterator it = content_.find(url);
   if (it == content_.end()) return Status(kNotFound, "URL inexistente: " + url);
+  currentUrl_ = url;
   current_ = it->second;
-  pos_ = 0;
+  rangeHonored = supportsRanges_ && offset > 0 && offset < current_.size();
+  pos_ = rangeHonored ? static_cast<size_t>(offset) : 0;
+  remaining = current_.size() - pos_;
+  servedThisConnection_ = 0;
+  dropLimit_ = 0;
+  std::map<std::string, Drop>::iterator d = drops_.find(url);
+  if (d != drops_.end() && d->second.count > 0) {
+    --d->second.count;
+    dropLimit_ = d->second.afterBytes;
+  }
   open_ = true;
-  contentLength = current_.size();
   return Status::Ok();
 }
 
@@ -247,12 +340,21 @@ Status MemoryTransport::read(char* buffer, size_t capacity, size_t& got, bool& f
   got = 0;
   finished = false;
   if (!open_) return Status(kInternal, "transporte não está aberto");
+  if (dropLimit_ != 0 && servedThisConnection_ >= dropLimit_) {
+    open_ = false;
+    return Status(kIoError, "conexão perdida (simulada): " + currentUrl_);
+  }
   size_t n = current_.size() - pos_;
   if (n > capacity) n = capacity;
   if (n > chunk_) n = chunk_;
+  if (dropLimit_ != 0 && servedThisConnection_ + n > dropLimit_) {
+    n = static_cast<size_t>(dropLimit_ - servedThisConnection_);
+  }
   for (size_t i = 0; i < n; ++i) buffer[i] = current_[pos_ + i];
   pos_ += n;
   got = n;
+  servedBytes_ += n;
+  servedThisConnection_ += n;
   finished = pos_ >= current_.size();
   return Status::Ok();
 }

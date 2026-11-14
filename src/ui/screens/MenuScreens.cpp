@@ -4,6 +4,7 @@
 #include "library/Category.h"
 #include "library/Library.h"
 #include "library/Scanner.h"
+#include "plugins/ModuleRegistry.h"
 #include "theme/Theme.h"
 #include "ui/AppController.h"
 #include "ui/Font.h"
@@ -231,7 +232,9 @@ enum MainMenuItem {
   kMenuShowMissing,
   kMenuRemoveMissing,
   kMenuStore,
+  kMenuModules,
   kMenuAbout,
+  kMenuExit,
   kMenuCount
 };
 
@@ -250,7 +253,10 @@ class MainMenuModel : public IMenuModel {
     out.push_back(MenuItem(s.get("menu.showMissing"), s.get(app.config().showMissing ? "menu.on" : "menu.off")));
     out.push_back(MenuItem(s.get("menu.removeMissing"), ""));
     out.push_back(MenuItem(s.get("menu.store"), s.get("menu.soon"), false));
+    out.push_back(MenuItem(s.get("menu.modules"),
+                           app.safeMode() ? s.get("menu.safemode") : std::string(kChevron)));
     out.push_back(MenuItem(s.get("menu.about"), kChevron));
+    out.push_back(MenuItem(s.get("menu.exit"), ""));
   }
   virtual void activate(IAppController& app, size_t index) NB_OVERRIDE {
     const Strings& s = app.strings();
@@ -268,6 +274,21 @@ class MainMenuModel : public IMenuModel {
         break;
       }
       case kMenuStore: app.showToast(s.get("toast.store.soon"), false); break;
+      case kMenuModules: {
+        std::vector<std::string> lines;
+        const ModuleRegistry& reg = app.modules();
+        for (size_t i = 0; i < reg.size(); ++i) {
+          const ModuleRecord& r = reg.at(i);
+          std::string line = r.manifest.name + " (" + r.manifest.id + " " + r.manifest.version.toString() +
+                             "): " + s.get(std::string("module.state.") + moduleStateName(r.state));
+          if (!r.reason.empty() && r.state != kModuleRunning) line += " \xE2\x80\x94 " + r.reason;
+          lines.push_back(line);
+        }
+        if (app.safeMode()) lines.push_back(s.get("modules.safemode"));
+        app.pushScreen(createMessageScreen(app, s.get("modules.title"), lines));
+        break;
+      }
+      case kMenuExit: app.exitToDashboard(); break;
       case kMenuAbout: {
         std::vector<std::string> lines;
         lines.push_back(s.get("about.line1"));

@@ -23,6 +23,7 @@ class PosixFileSystem : public IFileSystem {
   virtual Status appendToFile(const std::string& path, const char* data,
                               size_t length) NB_OVERRIDE;
   virtual Status createDirectories(const std::string& path) NB_OVERRIDE;
+  virtual Status freeSpace(const std::string& path, uint64_t& bytes) NB_OVERRIDE;
   virtual Status removeFile(const std::string& path) NB_OVERRIDE;
   virtual Status renameFile(const std::string& from,
                             const std::string& to) NB_OVERRIDE;

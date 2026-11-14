@@ -5,7 +5,23 @@
 
 namespace nebula {
 
-MemoryFileSystem::MemoryFileSystem(char separator) : sep_(separator) {}
+MemoryFileSystem::MemoryFileSystem(char separator)
+    : sep_(separator), capacity_(0xFFFFFFFFFFFFULL) {}
+
+uint64_t MemoryFileSystem::usedBytes() const {
+  uint64_t total = 0;
+  for (std::map<std::string, FileNode>::const_iterator it = files_.begin(); it != files_.end(); ++it) {
+    total += it->second.data.size();
+  }
+  return total;
+}
+
+Status MemoryFileSystem::freeSpace(const std::string& p, uint64_t& bytes) {
+  if (failing(p)) return Status(kIoError, "falha simulada ao consultar espaço: " + p);
+  uint64_t used = usedBytes();
+  bytes = used >= capacity_ ? 0 : capacity_ - used;
+  return Status::Ok();
+}
 
 std::string MemoryFileSystem::key(const std::string& p) const {
   return str::toLowerAscii(path::stripTrailingSeparator(p, sep_));
@@ -130,6 +146,11 @@ Status MemoryFileSystem::writeFileAtomic(const std::string& p,
   if (!parentDir.empty() && dirs_.find(key(parentDir)) == dirs_.end()) {
     return Status(kNotFound, "diretório inexistente: " + parentDir);
   }
+  std::map<std::string, FileNode>::const_iterator old = files_.find(key(p));
+  uint64_t previous = old == files_.end() ? 0 : old->second.data.size();
+  if (usedBytes() - previous + data.size() > capacity_) {
+    return Status(kIoError, "sem espaço no volume (simulado): " + p);
+  }
   FileNode node;
   node.name = p;
   node.data = data;
@@ -143,6 +164,9 @@ Status MemoryFileSystem::appendToFile(const std::string& p, const char* data,
   std::string parentDir = path::parent(p, sep_);
   if (!parentDir.empty() && dirs_.find(key(parentDir)) == dirs_.end()) {
     return Status(kNotFound, "diretório inexistente: " + parentDir);
+  }
+  if (usedBytes() + length > capacity_) {
+    return Status(kIoError, "sem espaço no volume (simulado): " + p);
   }
   std::string k = key(p);
   if (files_.find(k) == files_.end()) {

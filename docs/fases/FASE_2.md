@@ -77,6 +77,11 @@ tools/demo/           gera biblioteca fictícia para demonstração/capturas
 | Console Xbox 360 RGH/JTAG para testes | Indisponível. |
 | Alternativa livre: libxenon/Free60 (GPL-2.0) | Disponível em tese, mas roda *bare-metal* (via XeLL), **sem** o kernel e o XAM do sistema: sem perfis, sem lançamento de jogos, sem os serviços do dashboard. Não serve para uma central de jogos. |
 
+> **Atualização (14/11/2026, análise de plugins):** existe um SDK aberto,
+> o **xsdk** (MIT), que gera XEX para o kernel de retail sem material da
+> Microsoft. Ver `docs/analise/DEPENDENCIAS_NEBULA360.md`, seções 6 e 7.
+> Adotá-lo depende de autorização.
+
 **Consequência:** nenhum `.xex` foi gerado e **nenhum teste foi feito em
 console**. Para gerar o executável é preciso:
 

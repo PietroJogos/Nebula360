@@ -13,6 +13,7 @@
 #include "platform/Launcher.h"
 #include "platform/MemoryFileSystem.h"
 #include "platform/host/PosixFileSystem.h"
+#include "plugins/ModuleRegistry.h"
 #include "ui/Image.h"
 #include "ui/SoftwareRenderer.h"
 #include "ui/screens/LibraryScreen.h"
@@ -23,14 +24,19 @@ namespace {
 
 class RecordingLauncher : public ILauncher {
  public:
-  RecordingLauncher() : calls(0) {}
+  RecordingLauncher() : calls(0), dashboardCalls(0) {}
   virtual Status launch(const Game& game) NB_OVERRIDE {
     ++calls;
     last = game.path;
     return Status::Ok();
   }
   virtual bool canLaunch(const Game&) const NB_OVERRIDE { return true; }
+  virtual Status returnToDashboard() NB_OVERRIDE {
+    ++dashboardCalls;
+    return Status::Ok();  // no console não retornaria
+  }
   int calls;
+  int dashboardCalls;
   std::string last;
 };
 
@@ -361,4 +367,74 @@ NB_TEST(app_fails_cleanly_without_fonts) {
   f.app->tick(idle);  // não inicializado: não faz nada, sem crash
   SoftwareRenderer r;
   f.app->render(r);
+}
+
+NB_TEST(app_enters_safe_mode_after_repeated_unexpected_shutdowns) {
+  // Sessão normal: módulo opcional de exportação roda e grava o arquivo.
+  {
+    Fixture f;
+    writeConfig(f.fs);
+    addGames(f.fs);
+    REQUIRE(f.start().ok());
+    f.waitScan();
+    CHECK(f.app->modules().isRunning("nebula.export"));
+    CHECK(!f.app->safeMode());
+    CHECK(f.fs.exists("/dados/export/library.v1.json"));
+  }
+  // Duas quedas seguidas registradas: o app sobe em modo seguro.
+  Fixture g;
+  writeConfig(g.fs);
+  addGames(g.fs);
+  g.fs.addFile("/dados/session.json", "{\"schema\":1,\"state\":\"running\",\"consecutiveCrashes\":1}");
+  REQUIRE(g.start().ok());
+  CHECK(g.app->safeMode());
+  CHECK(g.toastContains("não foi encerrado normalmente"));
+  CHECK(g.toastContains("Modo seguro"));
+  CHECK_EQ(g.app->modules().find("nebula.export")->state, kModuleDisabled);
+  CHECK(g.app->modules().isRunning("nebula.library"));
+  g.waitScan();
+  CHECK_EQ(g.app->library().size(), 5u);  // a biblioteca funciona normalmente
+  CHECK(!g.fs.exists("/dados/export/library.v1.json"));
+  // Encerramento normal limpa o estado: a próxima sessão sai do modo seguro.
+  g.app->shutdown();
+  std::string session;
+  REQUIRE(g.fs.fileContents("/dados/session.json", session));
+  CHECK(session.find("\"clean\"") != std::string::npos);
+}
+
+NB_TEST(app_optional_module_disabled_by_config) {
+  Fixture f;
+  f.fs.addFile("/dados/nebula.json",
+               "{\"schema\":1,\"scanPaths\":[{\"path\":\"/jogos\"}],\"integrations\":{\"libraryExport\":false}}");
+  addGames(f.fs);
+  REQUIRE(f.start().ok());
+  f.waitScan();
+  CHECK_EQ(f.app->modules().find("nebula.export")->state, kModuleDisabled);
+  CHECK(!f.fs.exists("/dados/export/library.v1.json"));
+  CHECK_EQ(f.app->library().size(), 5u);
+}
+
+NB_TEST(app_exit_returns_to_dashboard_or_closes_on_pc) {
+  Fixture f;
+  writeConfig(f.fs);
+  RecordingLauncher console;
+  REQUIRE(f.start(&console).ok());
+  f.waitScan();
+  f.press(kButtonStart);
+  f.press(kButtonUp);  // a lista é circular: do primeiro item, "Sair" é o anterior
+  CHECK_EQ(f.app->activeScreenName(), std::string("menu"));
+  f.press(kButtonA);
+  CHECK_EQ(console.dashboardCalls, 1);
+  std::string session;
+  REQUIRE(f.fs.fileContents("/dados/session.json", session));
+  CHECK(session.find("\"clean\"") != std::string::npos);  // saída marcada como limpa
+
+  Fixture pc;
+  writeConfig(pc.fs);
+  UnsupportedLauncher unsupported;
+  REQUIRE(pc.start(&unsupported).ok());
+  pc.waitScan();
+  CHECK(!pc.app->quitRequested());
+  pc.app->exitToDashboard();
+  CHECK(pc.app->quitRequested());  // no PC o frontend fecha a janela
 }

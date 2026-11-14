@@ -10,6 +10,7 @@
 namespace nebula {
 
 class Library;
+class ModuleRegistry;
 class Scanner;
 class Screen;
 class Strings;
@@ -33,6 +34,8 @@ class IAppController {
   virtual const Scanner& scanner() const = 0;
   virtual PlatformKind platform() const = 0;
   virtual bool canLaunch(const Game& game) const = 0;
+  virtual const ModuleRegistry& modules() const = 0;
+  virtual bool safeMode() const = 0;
 
   virtual void pushScreen(Screen* screen) = 0;
   virtual void popScreen() = 0;
@@ -44,6 +47,8 @@ class IAppController {
   virtual void startScan() = 0;
   virtual void cancelScan() = 0;
   virtual size_t removeMissingGames() = 0;
+  // Salva tudo, marca encerramento limpo e volta ao dashboard (no PC, fecha).
+  virtual void exitToDashboard() = 0;
 
   virtual void setSortMode(SortMode mode) = 0;
   virtual void setLastCategory(const std::string& category) = 0;

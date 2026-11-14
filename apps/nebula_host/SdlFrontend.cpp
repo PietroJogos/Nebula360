@@ -139,6 +139,7 @@ int runSdlFrontend(App& app, SoftwareRenderer& renderer, IFileSystem& fs,
     SDL_RenderPresent(sdl);
     ++frame;
     if (frameLimit >= 0 && frame >= frameLimit) running = false;
+    if (app.quitRequested()) running = false;  // "Sair do Nébula" no menu
   }
   if (pad) SDL_GameControllerClose(pad);
   SDL_DestroyTexture(tex);

@@ -1,5 +1,7 @@
 #include "app/App.h"
 
+#include "app/BuiltinModules.h"
+
 #include "core/Path.h"
 #include "core/StringUtil.h"
 #include "integrations/LibraryExport.h"
@@ -31,7 +33,8 @@ uint64_t logTime() { return gLogClock ? gLogClock->monotonicMs() : 0; }
 
 App::App(IFileSystem& fs, IClock& clock, ILauncher& launcher, PlatformKind platform)
     : fs_(fs), clock_(clock), launcher_(launcher), platform_(platform), scanner_(fs),
-      themes_(fs), textures_(fs, 96, 2), covers_(NULL), libraryScreen_(NULL), scanScreen_(NULL),
+      themes_(fs), textures_(fs, 96, 2), covers_(NULL), modules_(platform), bootGuard_(NULL),
+      quitRequested_(false), libraryScreen_(NULL), scanScreen_(NULL),
       fileLog_(NULL), savedRevision_(0), seenRevision_(0), lastChangeMs_(0),
       lastSaveFailureMs_(0), configDirty_(false), configChangedMs_(0), initialized_(false) {
   gLogClock = &clock_;
@@ -53,6 +56,7 @@ App::~App() {
     Log::setTimeSource(NULL);
   }
   delete covers_;
+  delete bootGuard_;
 }
 
 std::string App::dataPath(const std::string& name) const {
@@ -131,9 +135,23 @@ Status App::init(const AppPaths& paths) {
   if (!lib.ok()) showToast(strings_.get("toast.library.corrupt"), true);
   savedRevision_ = seenRevision_ = library_.revision();
 
-  if (config_.exportLibrary) {
-    integrations_.add(new JsonExportIntegration(fs_, dataPath("export/library.v1.json"), clock_));
-  }
+  // Módulos: obrigatórios sempre; opcionais conforme a configuração, exceto
+  // em modo seguro (ativado após encerramentos inesperados seguidos).
+  bootGuard_ = new BootGuard(fs_, dataPath("session.json"));
+  bootGuard_->begin();
+  if (bootGuard_->previousSessionCrashed()) showToast(strings_.get("toast.crash"), true);
+  modules_.setSafeMode(bootGuard_->safeModeRecommended());
+  registerBuiltinModules(modules_);
+  modules_.setEnabled("nebula.export", config_.exportLibrary);
+  ModuleContext moduleContext;
+  moduleContext.platform = platform_;
+  moduleContext.fs = &fs_;
+  moduleContext.clock = &clock_;
+  moduleContext.dataDir = paths_.dataDir;
+  moduleContext.integrations = &integrations_;
+  Status ms = modules_.startAll(moduleContext);
+  if (!ms.ok()) showToast(strings_.format("toast.module.required", ms.message()), true);
+  if (modules_.safeMode()) showToast(strings_.get("toast.safemode"), true);
 
   libraryScreen_ = new LibraryScreen(*this);
   screens_.push(libraryScreen_);
@@ -151,6 +169,8 @@ void App::shutdown() {
   if (scanner_.running()) scanner_.cancel();
   if (library_.revision() != savedRevision_) saveLibraryNow();
   if (configDirty_) saveConfigNow();
+  modules_.stopAll();
+  if (bootGuard_ != NULL) bootGuard_->markCleanExit();
   NB_INFO(kTag, "encerrando");
   if (fileLog_ != NULL) fileLog_->flush();
   initialized_ = false;
@@ -281,11 +301,32 @@ void App::launchGame(const std::string& gameId) {
   library_.recordLaunch(gameId, clock_.unixTimeSeconds());
   saveLibraryNow();
   if (configDirty_) saveConfigNow();
+  // O lançamento troca o título: a sessão termina de forma limpa.
+  if (bootGuard_ != NULL) bootGuard_->markCleanExit();
   if (fileLog_ != NULL) fileLog_->flush();
   Status s = launcher_.launch(*g);
   if (!s.ok()) {
+    if (bootGuard_ != NULL) bootGuard_->markRunning();
     NB_ERROR(kTag, "falha ao iniciar " << g->path << ": " << s.toString());
     showToast(strings_.format("toast.launch.error", s.message()), true);
+  }
+}
+
+void App::exitToDashboard() {
+  saveLibraryNow();
+  if (configDirty_) saveConfigNow();
+  if (bootGuard_ != NULL) bootGuard_->markCleanExit();
+  NB_INFO(kTag, "saindo para o dashboard");
+  if (fileLog_ != NULL) fileLog_->flush();
+  Status s = launcher_.returnToDashboard();
+  if (s.code() == kUnsupported) {
+    quitRequested_ = true;  // PC: o frontend fecha a janela
+    return;
+  }
+  if (!s.ok()) {
+    if (bootGuard_ != NULL) bootGuard_->markRunning();
+    NB_ERROR(kTag, "falha ao voltar ao dashboard: " << s.toString());
+    showToast(strings_.format("toast.exit.error", s.message()), true);
   }
 }
 

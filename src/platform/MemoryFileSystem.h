@@ -24,6 +24,9 @@ class MemoryFileSystem : public IFileSystem {
   void clearFailures();
 
   bool fileContents(const std::string& path, std::string& out) const;
+  // Capacidade simulada do volume: gravações além dela falham ("disco cheio").
+  void setCapacity(uint64_t bytes) { capacity_ = bytes; }
+  uint64_t usedBytes() const;
   size_t fileCount() const { return files_.size(); }
 
   virtual char separator() const NB_OVERRIDE { return sep_; }
@@ -41,6 +44,7 @@ class MemoryFileSystem : public IFileSystem {
   virtual Status appendToFile(const std::string& path, const char* data,
                               size_t length) NB_OVERRIDE;
   virtual Status createDirectories(const std::string& path) NB_OVERRIDE;
+  virtual Status freeSpace(const std::string& path, uint64_t& bytes) NB_OVERRIDE;
   virtual Status removeFile(const std::string& path) NB_OVERRIDE;
   virtual Status renameFile(const std::string& from,
                             const std::string& to) NB_OVERRIDE;
@@ -58,6 +62,7 @@ class MemoryFileSystem : public IFileSystem {
   };
 
   char sep_;
+  uint64_t capacity_;
   std::map<std::string, FileNode> files_;
   std::map<std::string, std::string> dirs_;  // chave -> caminho original
   std::set<std::string> failures_;

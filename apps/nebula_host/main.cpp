@@ -130,6 +130,7 @@ int runHeadless(App& app, SoftwareRenderer& renderer, ManualClock& clock, IFileS
       std::fprintf(stderr, "passo de roteiro desconhecido: %s\n", step.c_str());
       return 2;
     }
+    if (app.quitRequested()) break;
     InputState pressed;
     pressed.buttons = b;
     for (int k = 0; k < 2; ++k, ++framesRun) {
@@ -141,7 +142,7 @@ int runHeadless(App& app, SoftwareRenderer& renderer, ManualClock& clock, IFileS
       clock.advance(16);
     }
   }
-  for (; framesRun < o.frames; ++framesRun) {
+  for (; framesRun < o.frames && !app.quitRequested(); ++framesRun) {
     app.tick(idle);
     clock.advance(16);
   }
