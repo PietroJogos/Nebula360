@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "nebula-claro",
+  "name": "Nébula Claro",
+  "author": "Projeto Nébula 360",
+  "version": "1.0",
+  "colors": {
+    "backgroundTop": "#EEF2FF",
+    "backgroundBottom": "#E0E7FF",
+    "surface": "#1E1B4B14",
+    "surfaceFocused": "#1E1B4B29",
+    "accent": "#4F46E5",
+    "accentText": "#FFFFFF",
+    "text": "#1E1B4B",
+    "textMuted": "#55537A",
+    "favorite": "#CA8A04",
+    "danger": "#DC2626",
+    "overlay": "#EEF2FFE6"
+  }
+}

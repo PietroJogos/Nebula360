@@ -1,0 +1,16 @@
+# Binarios de terceiros (proprietarios): mantidos apenas localmente.
+# Ver references/xex/README.md para hashes e procedencia.
+references/xex/original/*.xex
+references/xex/original/*.XEX
+
+# Saídas de build e dados locais de execução
+build/
+build-*/
+nebula_data/
+
+# Pacotes de terceiros (proprietários): só locais, nunca versionados.
+references/pacotes/original/
+*.rar
+*.zip
+*.xex
+!tests/**

@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "id": "alto-contraste",
+  "name": "Alto Contraste",
+  "author": "Projeto Nébula 360",
+  "version": "1.0",
+  "colors": {
+    "backgroundTop": "#000000",
+    "backgroundBottom": "#000000",
+    "surface": "#FFFFFF26",
+    "surfaceFocused": "#FFFFFF4D",
+    "accent": "#FFD400",
+    "accentText": "#000000",
+    "text": "#FFFFFF",
+    "textMuted": "#E0E0E0",
+    "favorite": "#FFD400",
+    "danger": "#FF5555",
+    "overlay": "#000000EB"
+  },
+  "metrics": {
+    "tileWidth": 186,
+    "tileHeight": 240,
+    "columns": 5,
+    "fontTitle": 34,
+    "fontBody": 24,
+    "fontSmall": 18,
+    "tileSpacing": 18
+  }
+}

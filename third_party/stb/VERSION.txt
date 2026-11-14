@@ -1,0 +1,5 @@
+Origem: https://github.com/nothings/stb
+Commit: 9600522de53973336fa033a289858a4354cbb04c (2026-11-12)
+Arquivos: stb_truetype.h v1.28, stb_image.h v2.32, stb_image_write.h v1.18
+Licença: MIT ou domínio público (Unlicense), à escolha — ver LICENSE.txt
+Sem modificações locais.

@@ -1,0 +1,87 @@
+# Pré-release do Nébula 360. Dispara de dois jeitos:
+#  - ao publicar uma release pela interface do GitHub (Releases › Draft a new
+#    release, com tag nova como v0.3.0-alpha.1);
+#  - ao enviar uma tag de versão de teste (v*-alpha*, v*-beta*, v*-rc*).
+# Antes de anexar o pacote: testes em x86-64 e em PowerPC 32-bit big-endian
+# (qemu). Só usa ações oficiais do GitHub e o "gh" do runner.
+name: Pré-release
+
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - "v*-alpha*"
+      - "v*-beta*"
+      - "v*-rc*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Os dois gatilhos podem chegar juntos para a mesma tag: executa um por vez.
+concurrency:
+  group: prerelease-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  testes-big-endian:
+    name: Testes em PowerPC big-endian
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependências
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++-powerpc-linux-gnu qemu-user
+      - name: Compilar
+        run: |
+          cmake -S . -B build-ppc -G Ninja -DCMAKE_BUILD_TYPE=Release -DNEBULA_WITH_SDL2=OFF \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/powerpc-linux-gnu.cmake
+          cmake --build build-ppc
+      - name: Testar
+        run: ctest --test-dir build-ppc --output-on-failure
+
+  pacote-linux:
+    name: Pacote Linux x86-64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependências
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libsdl2-dev
+      - name: Compilar, testar e empacotar
+        run: tools/release/package_linux.sh "${GITHUB_REF_NAME}" dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pacote-linux
+          path: dist/
+
+  publicar:
+    name: Publicar pré-release
+    needs: [testes-big-endian, pacote-linux]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacote-linux
+          path: dist
+      - name: Criar ou completar a pré-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NOTES="docs/releases/${TAG}.md"
+          if [ ! -f "$NOTES" ]; then echo "notas ausentes: $NOTES" >&2; exit 1; fi
+          TITLE="Nébula 360 ${TAG} (pré-lançamento, só PC)"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --prerelease --title "$TITLE" --notes-file "$NOTES"
+          else
+            gh release create "$TAG" dist/* --prerelease --title "$TITLE" --notes-file "$NOTES"
+          fi
