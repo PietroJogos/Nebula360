@@ -14,7 +14,9 @@ VERSION="${1:?informe a versão, ex.: v0.3.0-alpha.1}"
 OUT="${2:?informe a pasta de saída}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BUILD="$ROOT/build-release"
-NAME="nebula360-${VERSION#v}-linux-x86_64"
+SAFE_VERSION="${VERSION#v}"
+SAFE_VERSION="${SAFE_VERSION//\//-}"
+NAME="nebula360-${SAFE_VERSION}-linux-x86_64"
 
 cmake -S "$ROOT" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build "$BUILD"
