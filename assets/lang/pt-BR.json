@@ -104,7 +104,7 @@
     "about.line1": "Nébula 360 — central de jogos e aplicativos para Xbox 360.",
     "about.line2": "Código próprio. Não contém código nem recursos do Aurora ou do GodStix.",
     "about.line3": "Fonte Inter (SIL Open Font License 1.1). Bibliotecas stb (domínio público / MIT).",
-    "about.line4": "Versão de desenvolvimento — Fase 2.",
+    "about.line4": "Versão 0.3.0-alpha.1 (pré-lançamento para PC). Ainda não há versão para o Xbox 360.",
     "toast.config.corrupt": "Configuração ilegível: padrões restaurados (cópia salva como .corrompido)",
     "toast.library.corrupt": "Biblioteca ilegível: uma cópia foi salva como .corrompido",
     "toast.theme.missing": "Tema \"{0}\" não encontrado; usando o padrão",

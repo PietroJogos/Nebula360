@@ -1,0 +1,73 @@
+# Publica uma pré-release quando uma tag de versão de teste é enviada
+# (ex.: v0.3.0-alpha.1). Antes de publicar: testes em x86-64 e em PowerPC
+# 32-bit big-endian (qemu). Só usa ações oficiais do GitHub e o "gh" do runner.
+name: Pré-release
+
+on:
+  push:
+    tags:
+      - "v*-alpha*"
+      - "v*-beta*"
+      - "v*-rc*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes-big-endian:
+    name: Testes em PowerPC big-endian
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependências
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++-powerpc-linux-gnu qemu-user
+      - name: Compilar
+        run: |
+          cmake -S . -B build-ppc -G Ninja -DCMAKE_BUILD_TYPE=Release -DNEBULA_WITH_SDL2=OFF \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/powerpc-linux-gnu.cmake
+          cmake --build build-ppc
+      - name: Testar
+        run: ctest --test-dir build-ppc --output-on-failure
+
+  pacote-linux:
+    name: Pacote Linux x86-64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependências
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libsdl2-dev
+      - name: Compilar, testar e empacotar
+        run: tools/release/package_linux.sh "${GITHUB_REF_NAME}" dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pacote-linux
+          path: dist/
+
+  publicar:
+    name: Publicar pré-release
+    needs: [testes-big-endian, pacote-linux]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: pacote-linux
+          path: dist
+      - name: Criar pré-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="docs/releases/${GITHUB_REF_NAME}.md"
+          if [ ! -f "$NOTES" ]; then echo "notas ausentes: $NOTES" >&2; exit 1; fi
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --prerelease \
+            --title "Nébula 360 ${GITHUB_REF_NAME} (pré-lançamento, só PC)" \
+            --notes-file "$NOTES"

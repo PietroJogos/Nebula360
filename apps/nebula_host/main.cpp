@@ -51,7 +51,10 @@ struct Options {
   int frames;
   std::string script;
   std::string screenshot;
-  Options() : dataDir("nebula_data"), assetsDir(NEBULA_DEFAULT_ASSETS), headless(false), frames(120) {}
+  bool assetsGiven;
+  Options()
+      : dataDir("nebula_data"), assetsDir(NEBULA_DEFAULT_ASSETS), headless(false), frames(120),
+        assetsGiven(false) {}
 };
 
 bool parseArgs(int argc, char** argv, Options& o) {
@@ -59,7 +62,10 @@ bool parseArgs(int argc, char** argv, Options& o) {
     std::string a = argv[i];
     bool hasValue = i + 1 < argc;
     if (a == "--data" && hasValue) o.dataDir = argv[++i];
-    else if (a == "--assets" && hasValue) o.assetsDir = argv[++i];
+    else if (a == "--assets" && hasValue) {
+      o.assetsDir = argv[++i];
+      o.assetsGiven = true;
+    }
     else if (a == "--add-path" && hasValue) o.addPaths.push_back(argv[++i]);
     else if (a == "--headless") o.headless = true;
     else if (a == "--frames" && hasValue) o.frames = std::atoi(argv[++i]);
@@ -162,6 +168,17 @@ int runHeadless(App& app, SoftwareRenderer& renderer, ManualClock& clock, IFileS
 int main(int argc, char** argv) {
   Options o;
   if (!parseArgs(argc, argv, o)) return 2;
+  // Pacote distribuído: sem --assets e sem a pasta de compilação, usa a pasta
+  // "assets" ao lado do executável.
+  if (!o.assetsGiven) {
+    PosixFileSystem probe;
+    if (!probe.isDirectory(o.assetsDir)) {
+      std::string exe = argc > 0 ? argv[0] : "";
+      size_t slash = exe.rfind('/');
+      std::string dir = slash == std::string::npos ? "." : exe.substr(0, slash);
+      o.assetsDir = dir + "/assets";
+    }
+  }
 
   StderrLogSink stderrLog;
   Log::addSink(&stderrLog);

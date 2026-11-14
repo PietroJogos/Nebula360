@@ -3,7 +3,7 @@
 # O executável do Xbox 360 (XEX) NÃO é gerado aqui: exige o XDK da Microsoft
 # (ver docs/fases/FASE_2.md, seção "Ambiente de compilação do Xbox 360").
 cmake_minimum_required(VERSION 3.16)
-project(Nebula360 VERSION 0.2.0 LANGUAGES C CXX)
+project(Nebula360 VERSION 0.3.0 LANGUAGES C CXX)
 
 option(NEBULA_WITH_SDL2 "Frontend com janela (SDL2) para PC" ON)
 option(NEBULA_WERROR "Tratar avisos como erros" ON)
