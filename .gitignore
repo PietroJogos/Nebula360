@@ -1,0 +1,4 @@
+# Binarios de terceiros (proprietarios): mantidos apenas localmente.
+# Ver references/xex/README.md para hashes e procedencia.
+references/xex/original/*.xex
+references/xex/original/*.XEX

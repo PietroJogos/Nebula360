@@ -1,0 +1,179 @@
+{
+  "file": "GodStix.xex",
+  "file_size": 8630272,
+  "magic": "XEX2",
+  "module_flags": 1,
+  "module_flags_names": [
+    "TITLE"
+  ],
+  "pe_data_offset": 12288,
+  "security_info_offset": 256,
+  "optional_header_count": 13,
+  "optional_headers": [
+    {
+      "key": "0x000002FF",
+      "name": "RESOURCE_INFO",
+      "offset": "0x00001514"
+    },
+    {
+      "key": "0x000003FF",
+      "name": "FILE_FORMAT_INFO",
+      "offset": "0x00001558"
+    },
+    {
+      "key": "0x00010100",
+      "name": "ENTRY_POINT",
+      "value": "0x82375880"
+    },
+    {
+      "key": "0x00010201",
+      "name": "IMAGE_BASE_ADDRESS",
+      "value": "0x82000000"
+    },
+    {
+      "key": "0x000103FF",
+      "name": "IMPORT_LIBRARIES",
+      "offset": "0x0000290C"
+    },
+    {
+      "key": "0x00018002",
+      "name": "CHECKSUM_TIMESTAMP",
+      "offset": "0x00001580"
+    },
+    {
+      "key": "0x000183FF",
+      "name": "ORIGINAL_PE_NAME",
+      "offset": "0x00001588"
+    },
+    {
+      "key": "0x000200FF",
+      "name": "STATIC_LIBRARIES",
+      "offset": "0x000015A0"
+    },
+    {
+      "key": "0x00020104",
+      "name": "TLS_INFO",
+      "offset": "0x00001684"
+    },
+    {
+      "key": "0x00020200",
+      "name": "DEFAULT_STACK_SIZE",
+      "value": "0x00040000"
+    },
+    {
+      "key": "0x00030000",
+      "name": "SYSTEM_FLAGS",
+      "value": "0x00000040"
+    },
+    {
+      "key": "0x00040006",
+      "name": "EXECUTION_INFO",
+      "offset": "0x00001694"
+    },
+    {
+      "key": "0x00040404",
+      "name": "LAN_KEY",
+      "offset": "0x000016AC"
+    }
+  ],
+  "resources": [
+    {
+      "name": "ttfarab",
+      "address": "0x82AC0000",
+      "size": 843008
+    },
+    {
+      "name": "ttflat",
+      "address": "0x82B8DD00",
+      "size": 414524
+    },
+    {
+      "name": "arial",
+      "address": "0x82BF3080",
+      "size": 151564
+    },
+    {
+      "name": "font",
+      "address": "0x82C18100",
+      "size": 268300
+    }
+  ],
+  "encryption": "normal (AES)",
+  "compression": "basic (blocos + zeros)",
+  "file_format_info_size": 40,
+  "basic_compression_blocks": 4,
+  "entry_point": "0x82375880",
+  "image_base": "0x82000000",
+  "import_libraries": [
+    "xam.xex",
+    "xboxkrnl.exe"
+  ],
+  "import_library_details": [
+    {
+      "name": "xam.xex",
+      "version": "2.0.21256.0",
+      "min_version": "2.0.1861.0",
+      "import_count": 96
+    },
+    {
+      "name": "xboxkrnl.exe",
+      "version": "2.0.21256.0",
+      "min_version": "2.0.1861.0",
+      "import_count": 320
+    }
+  ],
+  "pe_checksum": "0x006C1019",
+  "pe_timestamp": 1794245054,
+  "pe_timestamp_utc": "2026-11-09T17:24:14+00:00",
+  "original_pe_name": "GodStixStore.exe",
+  "static_libraries": [
+    "XAPILIB 2.0.21256.16384",
+    "D3D9 2.0.21256.16384",
+    "XBOXKRNL 2.0.21256.16384",
+    "XNET 2.0.21256.16384",
+    "XAUDIO2 2.0.21256.16384",
+    "XAPOBA 2.0.21256.16384",
+    "XMCORE 2.0.21256.16384",
+    "LIBCPMT 2.0.11886.1024",
+    "D3DX9 2.0.21256.16384",
+    "XGRAPHC 2.0.21256.16384",
+    "XONLINE 2.0.21256.16384",
+    "LINK 10.0.11886.17408",
+    "C2 16.0.11886.17408",
+    "C1 16.0.11886.17408"
+  ],
+  "tls_info": [
+    64,
+    2192253440,
+    4480,
+    4480
+  ],
+  "default_stack_size": 262144,
+  "system_flags": "0x00000040",
+  "system_flags_names": [
+    "INSECURE_SOCKETS"
+  ],
+  "execution_info": {
+    "media_id": "0x00000000",
+    "version": "0x00000000",
+    "base_version": "0x00000000",
+    "title_id": "0x05AB81F0",
+    "platform": 0,
+    "executable_type": 0,
+    "disc_number": 0,
+    "disc_count": 0,
+    "savegame_id": "0x00000000"
+  },
+  "security_info": {
+    "header_size": 5140,
+    "image_size": 12976128,
+    "rsa_signature_present": true,
+    "image_flags": "0x00000000",
+    "load_address": "0x82000000",
+    "import_table_count": 2,
+    "region": "all regions",
+    "allowed_media_types": "0x08000605",
+    "page_descriptor_count": 198
+  },
+  "pe_payload_bytes": 8617984
+}
