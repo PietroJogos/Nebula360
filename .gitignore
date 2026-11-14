@@ -2,3 +2,8 @@
 # Ver references/xex/README.md para hashes e procedencia.
 references/xex/original/*.xex
 references/xex/original/*.XEX
+
+# Saídas de build e dados locais de execução
+build/
+build-*/
+nebula_data/

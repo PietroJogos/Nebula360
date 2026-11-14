@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "nebula-escuro",
+  "name": "Nébula Escuro",
+  "author": "Projeto Nébula 360",
+  "version": "1.0",
+  "colors": {
+    "backgroundTop": "#0B0F2A",
+    "backgroundBottom": "#1C0B33",
+    "surface": "#FFFFFF14",
+    "surfaceFocused": "#FFFFFF2E",
+    "accent": "#8B5CF6",
+    "accentText": "#FFFFFF",
+    "text": "#F4F2FF",
+    "textMuted": "#A8A3C7",
+    "favorite": "#FACC15",
+    "danger": "#F87171",
+    "overlay": "#050614D0"
+  },
+  "metrics": {
+    "safeMarginX": 64,
+    "safeMarginY": 36,
+    "headerHeight": 64,
+    "tileWidth": 168,
+    "tileHeight": 232,
+    "tileSpacing": 18,
+    "columns": 6,
+    "cornerRadius": 12,
+    "fontTitle": 30,
+    "fontBody": 20,
+    "fontSmall": 15
+  }
+}
